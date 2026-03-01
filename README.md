@@ -1,4 +1,168 @@
-# BERNN-MSMS: Batch Effect Removal Neural Networks for Tandem Mass Spectrometry. 
+# BERNN: Batch Effect Removal Neural Networks for MALDI MSI
+
+**BERNN** provides deep learning and statistical tools for removing batch effects from
+MALDI Mass Spectrometry Imaging (MSI) data while preserving biological signal.
+
+---
+
+## Dataset Summary
+
+| Property | Value |
+|---|---|
+| Patients | 114 prostate cancer patients |
+| Slides | 125 slides (4 tissue samples per slide) |
+| m/z features | 159 |
+| Spectra (pixels) | ~3,000,000 |
+| Tissue types | 4 (tumor, stroma, benign, other) |
+| Batches | 7 (sizes: 30, 4, 12, 24, 32, 18, 5 slides) |
+| Normalization versions | 6 (TIC_max, TIC_area, RMS_area, RMS_max, Median_max, Median_area) |
+
+---
+
+## Repository Structure
+
+```
+BERNN_Clone/
+├── bernn/                          # Core BERNN package (autoencoder + classifier training)
+│   ├── dl/
+│   │   ├── models/pytorch/         # PyTorch model definitions (AutoEncoder2, KANAutoencoder2, …)
+│   │   └── train/                  # Training scripts
+│   │       ├── train_ae.py                          # Base AE trainer class
+│   │       ├── train_ae_classifier_holdout.py        # Joint AE+classifier training
+│   │       └── train_ae_then_classifier_holdout.py   # Two-stage training
+│   ├── ml/                         # Classical ML utilities
+│   └── utils/                      # Shared helpers (metrics, data getters, batch effect removal)
+│
+├── src/                            # Evaluation framework for MALDI MSI batch correction
+│   ├── evaluation/
+│   │   ├── batch_metrics.py        # All evaluation metrics (AMI, ARI, silhouette, PCR, kBET, …)
+│   │   └── evaluate_correction.py  # Full pipeline: run_full_evaluation, get_best_method, …
+│   ├── batch_correction/
+│   │   ├── combat_correction.py    # pyCombat wrapper (apply_pycombat, apply_pycombat_per_normalization)
+│   │   └── normae_correction.py    # NormAE adversarial autoencoder (PyTorch)
+│   ├── visualization/
+│   │   └── plot_batch_effects.py   # PCA/UMAP plots, metrics heatmap, radar chart, boxplots
+│   └── data/
+│       └── data_loader.py          # Load CSV/HDF5 data, stratified subsampling, dataset constants
+│
+├── notebooks/                      # Jupyter notebooks
+│   └── 02_evaluation_pipeline.ipynb  # End-to-end batch correction evaluation demo
+│
+├── tests/
+│   ├── unit/                       # Unit tests (autoencoder, training)
+│   └── integration/                # Integration tests
+│
+├── data/                           # Data directory (not tracked by git)
+├── requirements.txt                # Python dependencies
+└── README.md                       # This file
+```
+
+---
+
+
+
+## Installation
+
+```bash
+git clone https://github.com/your-org/BERNN_Clone.git
+cd BERNN_Clone
+pip install -r requirements.txt
+```
+
+### Optional R packages for additional correction methods
+```r
+install.packages("harmony")
+BiocManager::install("sva")
+```
+
+---
+
+## Usage
+
+### Quick start with synthetic data
+```python
+import numpy as np
+import pandas as pd
+from src.data.data_loader import get_normalization_names
+from src.batch_correction.normae_correction import apply_normae
+from src.evaluation.evaluate_correction import run_full_evaluation, print_results_table
+
+# Load your data
+norm_names = get_normalization_names()
+n_samples, n_features = 500, 159
+data_df = pd.DataFrame(np.random.randn(n_samples, n_features))
+batch_labels = np.repeat(np.arange(7), 72)[:n_samples]
+tissue_labels = np.random.randint(0, 4, size=n_samples)
+
+# Apply NormAE correction
+corrected_df = apply_normae(data_df, batch_labels, n_epochs=50)
+
+# Evaluate
+data_dict = {'TIC_max': {'raw': data_df, 'normae': corrected_df}}
+results_df = run_full_evaluation(data_dict, batch_labels, tissue_labels)
+print_results_table(results_df)
+```
+
+### Run the evaluation notebook
+```bash
+cd notebooks
+jupyter notebook 02_evaluation_pipeline.ipynb
+```
+
+### Apply pyCombat correction
+```python
+from src.batch_correction.combat_correction import apply_pycombat
+corrected_df = apply_pycombat(data_df, batch_labels)
+```
+
+---
+
+## Metric Interpretation Guide
+
+### Batch Effect Removal Metrics (lower = better)
+
+| Metric | Description |
+|---|---|
+| `ami_batch` | AMI between KMeans clusters and batch labels — 0 is ideal |
+| `ari_batch` | ARI between KMeans clusters and batch labels — 0 is ideal |
+| `silhouette_batch` | Silhouette score using batch labels — negative/zero is ideal |
+| `pcr` | R² of PC1 regressed on batch labels — 0 is ideal |
+| `kbet` | kBET rejection rate (chi-squared) — 0 is ideal |
+
+### Biological Signal Preservation Metrics (higher = better)
+
+| Metric | Description |
+|---|---|
+| `batch_entropy` | Mean entropy of batch distribution in kNN neighborhoods — high = well mixed |
+| `ami_tissue` | AMI between KMeans clusters and tissue labels — 1 is ideal |
+| `ari_tissue` | ARI between KMeans clusters and tissue labels — 1 is ideal |
+| `silhouette_tissue` | Silhouette score using tissue labels — 1 is ideal |
+| `knn_accuracy` | kNN classifier accuracy on tissue labels — 1 is ideal |
+| `mcc` | Matthews Correlation Coefficient — 1 is ideal |
+| `macro_f1` | Macro-averaged F1 score — 1 is ideal |
+
+### Combined Metric
+
+| Metric | Description |
+|---|---|
+| `bio_batch_f1` | Harmonic mean of bio preservation and batch removal — 1 is ideal |
+
+---
+
+## Citation
+
+If you use BERNN in your research, please cite:
+
+```bibtex
+@article{bernn2024,
+  title     = {BERNN: Batch Effect Removal Neural Networks for MALDI MSI},
+  author    = {Pelletier, Simon and others},
+  journal   = {TBD},
+  year      = {2024},
+}
+```
+
+---
 
 ## Author
 
@@ -50,7 +214,7 @@ To verify that CUDA is installed, run the command `nvidia-smi` on a terminal. If
 To verify that pyTorch is properly installed with CUDA support, run the 
 
 ## Training scripts
-The main scripts for training models are located in src/dl/train. <br/>
+The main scripts for training models are located in `bernn/dl/train/`. <br/>
 Use `train_ae_then_classifier_holdout.py` 
 to train a model that freezes the autoencoder and DANN/revTriplet/invTriplet layers of the network after the warmup. 
 The labels classifier is then trained alone after the warmup. The models for the alzheimer dataset reach better
@@ -76,30 +240,30 @@ These are minimal examples. For more complete descriptions of the available argu
 ### Alzheimer dataset
 In the root directory of the project, run the following commands:<br/>
 
-`python src\dl\train\train_ae_then_classifier_holdout.py --groupkfold=1 --embeddings_meta=2 --device=cuda:0 --n_epochs=10 --dataset=alzheimer --n_trials=20 --n_repeats=5 --exp_id=test_alzheimer1 --path=data/Alzheimer/`
+`python bernn/dl/train/train_ae_then_classifier_holdout.py --groupkfold=1 --embeddings_meta=2 --device=cuda:0 --n_epochs=10 --dataset=alzheimer --n_trials=20 --n_repeats=5 --exp_id=test_alzheimer1 --path=data/Alzheimer/`
 
-`python src\dl\train\train_ae_classifier_holdout.py --groupkfold=1 --embeddings_meta=2 --device=cuda:0 --n_epochs=10 --dataset=alzheimer --n_trials=20 --n_repeats=5 --exp_id=test_alzheimer2 --path=data/Alzheimer/`
+`python bernn/dl/train/train_ae_classifier_holdout.py --groupkfold=1 --embeddings_meta=2 --device=cuda:0 --n_epochs=10 --dataset=alzheimer --n_trials=20 --n_repeats=5 --exp_id=test_alzheimer2 --path=data/Alzheimer/`
 
 ### Adenocarcinoma dataset
 In the root directory of the project, run the following command:<br/>
 
-`python src\dl\train\train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=amide --n_trials=20 --n_repeats=5 --exp_id=test_amide1 --path=data/`
+`python bernn/dl/train/train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=amide --n_trials=20 --n_repeats=5 --exp_id=test_amide1 --path=data/`
 
-`python src\dl\train\train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=amide --n_trials=20 --n_repeats=5 --exp_id=test_amide2 --path=data/`
+`python bernn/dl/train/train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=amide --n_trials=20 --n_repeats=5 --exp_id=test_amide2 --path=data/`
 
 ### AgingMice dataset
 In the root directory of the project, run the following command:<br/>
 
-`python src\dl\train\train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=mice --n_trials=20 --n_repeats=5 --exp_id=test_mice1 --path=data/`
+`python bernn/dl/train/train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=mice --n_trials=20 --n_repeats=5 --exp_id=test_mice1 --path=data/`
 
-`python src\dl\train\train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=mice --n_trials=20 --n_repeats=5 --exp_id=test_mice2 --path=data/`
+`python bernn/dl/train/train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=mice --n_trials=20 --n_repeats=5 --exp_id=test_mice2 --path=data/`
 
 ### Custom dataset
 In the root directory of the project, run the following command:<br/>
 
-`python src\dl\train\train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=custom --n_trials=20 --n_repeats=5 --exp_id=<NameOfExperiment> --path=<path/to/folderContainingCsvFile> --csv_name<csvFileName>`
+`python bernn/dl/train/train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=custom --n_trials=20 --n_repeats=5 --exp_id=<NameOfExperiment> --path=<path/to/folderContainingCsvFile> --csv_name<csvFileName>`
 
-`python src\dl\train\train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=custom --n_trials=20 --n_repeats=5 --exp_id=<NameOfExperiment> --path=<path/to/folderContainingCsvFile> --csv_name<csvFileName>`
+`python bernn/dl/train/train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=custom --n_trials=20 --n_repeats=5 --exp_id=<NameOfExperiment> --path=<path/to/folderContainingCsvFile> --csv_name<csvFileName>`
 
 
 # Run experiments
@@ -126,7 +290,7 @@ Your dataset must be:
 - third column must be the batch IDs
 
 # Train scripts
-The main scripts for training models are located in src/dl/train. 
+The main scripts for training models are located in `bernn/dl/train/`.
 
 # Observe results
 ## Observe results from a local machine 
@@ -216,7 +380,7 @@ To make a summary of the results obtained in an experiment, use the command: `py
 ## Hyperparameters
 
 The hyperparameters are optimized using Bayesian optimization. They are defined at the end of each train script, which 
-are located in src/dl/train.
+are located in `bernn/dl/train/`.
 The parameters are the following:
 
     dropout (float): Number of neurons that are randomly dropped out. 
