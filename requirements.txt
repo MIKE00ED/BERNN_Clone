@@ -9,7 +9,9 @@ scipy==1.9.1
 tqdm
 joblib~=1.0.0
 ax-platform==0.2.10
-pycombat
+h5py>=3.8.0
+jupyter>=1.0.0
+pycombat>=0.3.0
 torch>=2.3.0
 torchvision>=0.15.0
 tensorboardX>=2.5.1

@@ -1,4 +1,126 @@
-# BERNN-MSMS: Batch Effect Removal Neural Networks for Tandem Mass Spectrometry. 
+# BERNN: Batch Effect Removal Neural Networks for MALDI MSI
+
+**BERNN** provides deep learning and statistical tools for removing batch effects from
+MALDI Mass Spectrometry Imaging (MSI) data while preserving biological signal.
+
+---
+
+## Dataset Summary
+
+| Property | Value |
+|---|---|
+| Patients | 114 prostate cancer patients |
+| Slides | 125 slides (4 tissue samples per slide) |
+| m/z features | 159 |
+| Spectra (pixels) | ~3,000,000 |
+| Tissue types | 4 (tumor, stroma, benign, other) |
+| Batches | 7 (sizes: 30, 4, 12, 24, 32, 18, 5 slides) |
+| Normalization versions | 6 (TIC_max, TIC_area, RMS_area, RMS_max, Median_max, Median_area) |
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/your-org/BERNN_Clone.git
+cd BERNN_Clone
+pip install -r requirements.txt
+```
+
+### Optional R packages for additional correction methods
+```r
+install.packages("harmony")
+BiocManager::install("sva")
+```
+
+---
+
+## Usage
+
+### Quick start with synthetic data
+```python
+import numpy as np
+import pandas as pd
+from src.data.data_loader import get_normalization_names
+from src.batch_correction.normae_correction import apply_normae
+from src.evaluation.evaluate_correction import run_full_evaluation, print_results_table
+
+# Load your data
+norm_names = get_normalization_names()
+n_samples, n_features = 500, 159
+data_df = pd.DataFrame(np.random.randn(n_samples, n_features))
+batch_labels = np.repeat(np.arange(7), 72)[:n_samples]
+tissue_labels = np.random.randint(0, 4, size=n_samples)
+
+# Apply NormAE correction
+corrected_df = apply_normae(data_df, batch_labels, n_epochs=50)
+
+# Evaluate
+data_dict = {'TIC_max': {'raw': data_df, 'normae': corrected_df}}
+results_df = run_full_evaluation(data_dict, batch_labels, tissue_labels)
+print_results_table(results_df)
+```
+
+### Run the evaluation notebook
+```bash
+cd notebooks
+jupyter notebook 02_evaluation_pipeline.ipynb
+```
+
+### Apply pyCombat correction
+```python
+from src.batch_correction.combat_correction import apply_pycombat
+corrected_df = apply_pycombat(data_df, batch_labels)
+```
+
+---
+
+## Metric Interpretation Guide
+
+### Batch Effect Removal Metrics (lower = better)
+
+| Metric | Description |
+|---|---|
+| `ami_batch` | AMI between KMeans clusters and batch labels — 0 is ideal |
+| `ari_batch` | ARI between KMeans clusters and batch labels — 0 is ideal |
+| `silhouette_batch` | Silhouette score using batch labels — negative/zero is ideal |
+| `pcr` | R² of PC1 regressed on batch labels — 0 is ideal |
+| `kbet` | kBET rejection rate (chi-squared) — 0 is ideal |
+
+### Biological Signal Preservation Metrics (higher = better)
+
+| Metric | Description |
+|---|---|
+| `batch_entropy` | Mean entropy of batch distribution in kNN neighborhoods — high = well mixed |
+| `ami_tissue` | AMI between KMeans clusters and tissue labels — 1 is ideal |
+| `ari_tissue` | ARI between KMeans clusters and tissue labels — 1 is ideal |
+| `silhouette_tissue` | Silhouette score using tissue labels — 1 is ideal |
+| `knn_accuracy` | kNN classifier accuracy on tissue labels — 1 is ideal |
+| `mcc` | Matthews Correlation Coefficient — 1 is ideal |
+| `macro_f1` | Macro-averaged F1 score — 1 is ideal |
+
+### Combined Metric
+
+| Metric | Description |
+|---|---|
+| `bio_batch_f1` | Harmonic mean of bio preservation and batch removal — 1 is ideal |
+
+---
+
+## Citation
+
+If you use BERNN in your research, please cite:
+
+```bibtex
+@article{bernn2024,
+  title     = {BERNN: Batch Effect Removal Neural Networks for MALDI MSI},
+  author    = {Pelletier, Simon and others},
+  journal   = {TBD},
+  year      = {2024},
+}
+```
+
+---
 
 ## Author
 
