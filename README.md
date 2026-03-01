@@ -19,6 +19,48 @@ MALDI Mass Spectrometry Imaging (MSI) data while preserving biological signal.
 
 ---
 
+## Repository Structure
+
+```
+BERNN_Clone/
+├── bernn/                          # Core BERNN package (autoencoder + classifier training)
+│   ├── dl/
+│   │   ├── models/pytorch/         # PyTorch model definitions (AutoEncoder2, KANAutoencoder2, …)
+│   │   └── train/                  # Training scripts
+│   │       ├── train_ae.py                          # Base AE trainer class
+│   │       ├── train_ae_classifier_holdout.py        # Joint AE+classifier training
+│   │       └── train_ae_then_classifier_holdout.py   # Two-stage training
+│   ├── ml/                         # Classical ML utilities
+│   └── utils/                      # Shared helpers (metrics, data getters, batch effect removal)
+│
+├── src/                            # Evaluation framework for MALDI MSI batch correction
+│   ├── evaluation/
+│   │   ├── batch_metrics.py        # All evaluation metrics (AMI, ARI, silhouette, PCR, kBET, …)
+│   │   └── evaluate_correction.py  # Full pipeline: run_full_evaluation, get_best_method, …
+│   ├── batch_correction/
+│   │   ├── combat_correction.py    # pyCombat wrapper (apply_pycombat, apply_pycombat_per_normalization)
+│   │   └── normae_correction.py    # NormAE adversarial autoencoder (PyTorch)
+│   ├── visualization/
+│   │   └── plot_batch_effects.py   # PCA/UMAP plots, metrics heatmap, radar chart, boxplots
+│   └── data/
+│       └── data_loader.py          # Load CSV/HDF5 data, stratified subsampling, dataset constants
+│
+├── notebooks/                      # Jupyter notebooks
+│   └── 02_evaluation_pipeline.ipynb  # End-to-end batch correction evaluation demo
+│
+├── tests/
+│   ├── unit/                       # Unit tests (autoencoder, training)
+│   └── integration/                # Integration tests
+│
+├── data/                           # Data directory (not tracked by git)
+├── requirements.txt                # Python dependencies
+└── README.md                       # This file
+```
+
+---
+
+
+
 ## Installation
 
 ```bash
@@ -172,7 +214,7 @@ To verify that CUDA is installed, run the command `nvidia-smi` on a terminal. If
 To verify that pyTorch is properly installed with CUDA support, run the 
 
 ## Training scripts
-The main scripts for training models are located in src/dl/train. <br/>
+The main scripts for training models are located in `bernn/dl/train/`. <br/>
 Use `train_ae_then_classifier_holdout.py` 
 to train a model that freezes the autoencoder and DANN/revTriplet/invTriplet layers of the network after the warmup. 
 The labels classifier is then trained alone after the warmup. The models for the alzheimer dataset reach better
@@ -198,30 +240,30 @@ These are minimal examples. For more complete descriptions of the available argu
 ### Alzheimer dataset
 In the root directory of the project, run the following commands:<br/>
 
-`python src\dl\train\train_ae_then_classifier_holdout.py --groupkfold=1 --embeddings_meta=2 --device=cuda:0 --n_epochs=10 --dataset=alzheimer --n_trials=20 --n_repeats=5 --exp_id=test_alzheimer1 --path=data/Alzheimer/`
+`python bernn/dl/train/train_ae_then_classifier_holdout.py --groupkfold=1 --embeddings_meta=2 --device=cuda:0 --n_epochs=10 --dataset=alzheimer --n_trials=20 --n_repeats=5 --exp_id=test_alzheimer1 --path=data/Alzheimer/`
 
-`python src\dl\train\train_ae_classifier_holdout.py --groupkfold=1 --embeddings_meta=2 --device=cuda:0 --n_epochs=10 --dataset=alzheimer --n_trials=20 --n_repeats=5 --exp_id=test_alzheimer2 --path=data/Alzheimer/`
+`python bernn/dl/train/train_ae_classifier_holdout.py --groupkfold=1 --embeddings_meta=2 --device=cuda:0 --n_epochs=10 --dataset=alzheimer --n_trials=20 --n_repeats=5 --exp_id=test_alzheimer2 --path=data/Alzheimer/`
 
 ### Adenocarcinoma dataset
 In the root directory of the project, run the following command:<br/>
 
-`python src\dl\train\train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=amide --n_trials=20 --n_repeats=5 --exp_id=test_amide1 --path=data/`
+`python bernn/dl/train/train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=amide --n_trials=20 --n_repeats=5 --exp_id=test_amide1 --path=data/`
 
-`python src\dl\train\train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=amide --n_trials=20 --n_repeats=5 --exp_id=test_amide2 --path=data/`
+`python bernn/dl/train/train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=amide --n_trials=20 --n_repeats=5 --exp_id=test_amide2 --path=data/`
 
 ### AgingMice dataset
 In the root directory of the project, run the following command:<br/>
 
-`python src\dl\train\train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=mice --n_trials=20 --n_repeats=5 --exp_id=test_mice1 --path=data/`
+`python bernn/dl/train/train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=mice --n_trials=20 --n_repeats=5 --exp_id=test_mice1 --path=data/`
 
-`python src\dl\train\train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=mice --n_trials=20 --n_repeats=5 --exp_id=test_mice2 --path=data/`
+`python bernn/dl/train/train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=mice --n_trials=20 --n_repeats=5 --exp_id=test_mice2 --path=data/`
 
 ### Custom dataset
 In the root directory of the project, run the following command:<br/>
 
-`python src\dl\train\train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=custom --n_trials=20 --n_repeats=5 --exp_id=<NameOfExperiment> --path=<path/to/folderContainingCsvFile> --csv_name<csvFileName>`
+`python bernn/dl/train/train_ae_then_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=custom --n_trials=20 --n_repeats=5 --exp_id=<NameOfExperiment> --path=<path/to/folderContainingCsvFile> --csv_name<csvFileName>`
 
-`python src\dl\train\train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=custom --n_trials=20 --n_repeats=5 --exp_id=<NameOfExperiment> --path=<path/to/folderContainingCsvFile> --csv_name<csvFileName>`
+`python bernn/dl/train/train_ae_classifier_holdout.py --groupkfold=1 --device=cuda:0 --dataset=custom --n_trials=20 --n_repeats=5 --exp_id=<NameOfExperiment> --path=<path/to/folderContainingCsvFile> --csv_name<csvFileName>`
 
 
 # Run experiments
@@ -248,7 +290,7 @@ Your dataset must be:
 - third column must be the batch IDs
 
 # Train scripts
-The main scripts for training models are located in src/dl/train. 
+The main scripts for training models are located in `bernn/dl/train/`.
 
 # Observe results
 ## Observe results from a local machine 
@@ -338,7 +380,7 @@ To make a summary of the results obtained in an experiment, use the command: `py
 ## Hyperparameters
 
 The hyperparameters are optimized using Bayesian optimization. They are defined at the end of each train script, which 
-are located in src/dl/train.
+are located in `bernn/dl/train/`.
 The parameters are the following:
 
     dropout (float): Number of neurons that are randomly dropped out. 
