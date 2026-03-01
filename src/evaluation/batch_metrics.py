@@ -260,7 +260,7 @@ def compute_batch_entropy(
             )
             probs = counts / counts.sum()
             probs = probs[probs > 0]
-            entropy = -np.sum(probs * np.log(probs + _EPSILON))
+            entropy = -np.sum(probs * np.log(probs))
             entropies.append(entropy)
         return float(np.mean(entropies))
     except Exception as e:
@@ -350,6 +350,8 @@ def compute_ami_tissue(data: np.ndarray, tissue_labels: np.ndarray) -> float:
     """
     try:
         data = _clean_data(data)
+        # Use at least _MIN_TISSUE_CLUSTERS (4) clusters to match expected tissue types
+        # in MALDI MSI dataset; actual unique labels may be fewer during subsampling.
         n_tissues = max(_MIN_TISSUE_CLUSTERS, len(np.unique(tissue_labels)))
         kmeans = KMeans(n_clusters=n_tissues, random_state=42, n_init=10)
         cluster_labels = kmeans.fit_predict(data)
@@ -379,6 +381,8 @@ def compute_ari_tissue(data: np.ndarray, tissue_labels: np.ndarray) -> float:
     """
     try:
         data = _clean_data(data)
+        # Use at least _MIN_TISSUE_CLUSTERS (4) clusters to match expected tissue types
+        # in MALDI MSI dataset; actual unique labels may be fewer during subsampling.
         n_tissues = max(_MIN_TISSUE_CLUSTERS, len(np.unique(tissue_labels)))
         kmeans = KMeans(n_clusters=n_tissues, random_state=42, n_init=10)
         cluster_labels = kmeans.fit_predict(data)
@@ -545,10 +549,10 @@ def compute_bio_batch_f1(bio_score: float, batch_score: float) -> float:
         Combined F1 score.
     """
     batch_removed = 1.0 - batch_score
-    denom = batch_removed + bio_score + 1e-8
+    denom = batch_removed + bio_score
     if denom == 0:
         return 0.0
-    return float(2.0 * batch_removed * bio_score / denom)
+    return float(2.0 * batch_removed * bio_score / (denom + 1e-8))
 
 
 def compute_all_metrics(

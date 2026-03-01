@@ -218,8 +218,10 @@ def plot_metrics_heatmap(results_df: pd.DataFrame, output_dir: str) -> str:
     results_df["combo"] = results_df["method"] + " / " + results_df["normalization"]
     pivot = results_df.set_index("combo")[metric_cols]
 
-    # Normalize each column to [0,1] for display
-    pivot_norm = (pivot - pivot.min()) / (pivot.max() - pivot.min() + 1e-8)
+    # Normalize each column to [0,1] for display; handle constant columns (zero range)
+    col_range = pivot.max() - pivot.min()
+    col_range[col_range < 1e-10] = 1.0  # avoid division by near-zero
+    pivot_norm = (pivot - pivot.min()) / col_range
 
     # For batch metrics: invert so that green = low (good removal)
     for col in batch_metrics:

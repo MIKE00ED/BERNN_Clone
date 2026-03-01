@@ -290,6 +290,8 @@ class NormAETrainer:
             perm = torch.randperm(n_samples)
             total_loss = 0.0
             n_batches_iter = 0
+            # Warm-up: gradually increase adversarial weight over the first half of
+            # training to stabilize early reconstruction before enforcing batch invariance.
             alpha = min(1.0, epoch / max(1, self.n_epochs // 2))
 
             for start in range(0, n_samples, self.batch_size):

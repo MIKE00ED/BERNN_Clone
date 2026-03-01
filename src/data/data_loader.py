@@ -50,7 +50,14 @@ def load_maldi_data(filepath: str, file_format: str = "csv") -> pd.DataFrame:
     """
     if file_format == "csv":
         logger.info(f"Loading CSV data from {filepath}")
-        return pd.read_csv(filepath, index_col=0)
+        try:
+            return pd.read_csv(filepath, index_col=0)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"CSV file not found: '{filepath}'. Check the path and file name."
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to load CSV '{filepath}': {e}") from e
     elif file_format in ("hdf5", "h5"):
         logger.info(f"Loading HDF5 data from {filepath}")
         import h5py
